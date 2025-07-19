@@ -78,6 +78,7 @@ export function usePosts(authorId?: string) {
         .insert({
           ...postData,
           user_id: user.id,
+          published_at: new Date().toISOString(), // Publish immediately
         })
         .select()
         .single();
