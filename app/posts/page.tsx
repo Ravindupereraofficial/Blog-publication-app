@@ -16,9 +16,12 @@ export default function PostsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <Link href="/">
-              <h1 className="text-2xl font-bold text-gray-900">SampleBlog</h1>
+              <h1 className="text-2xl font-bold text-gray-900">MindScript</h1>
             </Link>
             <nav className="flex items-center gap-4">
+              <Link href="/">
+                <Button variant="ghost">Home</Button>
+              </Link>
               <Link href="/pricing">
                 <Button variant="ghost">Pricing</Button>
               </Link>
@@ -35,7 +38,7 @@ export default function PostsPage() {
 
       <main className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">Blog Posts</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-4">MindScript</h1>
           <p className="text-xl text-gray-600">
             Discover our latest articles and insights. Premium content available with subscription.
           </p>

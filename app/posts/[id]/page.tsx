@@ -50,7 +50,7 @@ export default async function PostPage({ params }: PostPageProps) {
               </Button>
             </Link>
             <Link href="/">
-              <h1 className="text-xl font-bold text-gray-900">SampleBlog</h1>
+              <h1 className="text-xl font-bold text-gray-900">MindScript</h1>
             </Link>
           </div>
         </div>

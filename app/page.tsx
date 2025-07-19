@@ -16,7 +16,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div className="flex items-center">
-              <h1 className="text-2xl font-bold text-foreground">SampleBlog</h1>
+              <h1 className="text-2xl font-bold text-foreground">MindScript</h1>
             </div>
             <nav className="flex items-center gap-4">
               <Link href="/posts">
@@ -54,15 +54,14 @@ export default function Home() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto text-center">
           <h1 className="text-5xl md:text-6xl font-bold text-foreground mb-6">
-            Premium Blog Content
-            <span className="text-primary"> Made Simple</span>
+          Blog Boldly, 
+            <span className="text-primary"> Publish Instantly</span>
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Access exclusive articles, insights, and premium content from industry experts. 
-            Join thousands of readers who trust our platform for quality content.
+          Elevate your reading experience. Unlock expert-written blogs, industry secrets, and thoughtful content — all ad-free and on demand.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/signup">
+            <Link href="/posts">
               <Button size="lg" className="text-lg px-8 py-3">
                 Start Reading Today
                 <ArrowRight className="ml-2 h-5 w-5 text-primary-foreground" />
@@ -81,7 +80,7 @@ export default function Home() {
       <section className="py-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4">Why Choose SampleBlog?</h2>
+            <h2 className="text-3xl font-bold text-foreground mb-4">Why Choose MindScript?</h2>
             <p className="text-xl text-muted-foreground">Everything you need for premium content consumption</p>
           </div>
           
@@ -134,7 +133,7 @@ export default function Home() {
                 Ready to Get Started?
               </h2>
               <p className="text-xl text-muted-foreground mb-8">
-                Join thousands of readers who trust SampleBlog for premium content.
+                Join thousands of readers who trust MindScript for premium content.
               </p>
               <Link href="/signup">
                 <Button size="lg" className="text-lg px-8 py-3">
@@ -151,7 +150,7 @@ export default function Home() {
       <footer className="bg-card/80 backdrop-blur-sm border-t border-border py-8">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center text-muted-foreground">
-            <p>&copy; 2025 SampleBlog. All rights reserved.</p>
+            <p>&copy; 2025 MindScript. All rights reserved.</p>
           </div>
         </div>
       </footer>
