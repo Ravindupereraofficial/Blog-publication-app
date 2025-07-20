@@ -1,9 +1,11 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
-const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY')!;
-const stripeWebhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET')!;
+// Replace Deno.env.get with process.env
+const stripeSecret = process.env.STRIPE_SECRET_KEY!;
+const stripeWebhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 const stripe = new Stripe(stripeSecret, {
   appInfo: {
     name: 'Bolt Integration',
@@ -11,47 +13,52 @@ const stripe = new Stripe(stripeSecret, {
   },
 });
 
-const supabase = createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!);
+const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
 
-Deno.serve(async (req) => {
+// Replace Deno.serve with Node.js export (for Vercel/Node compatibility)
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
-    // Handle OPTIONS request for CORS preflight
     if (req.method === 'OPTIONS') {
-      return new Response(null, { status: 204 });
+      res.status(204).end();
+      return;
     }
-
     if (req.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+      res.status(405).send('Method not allowed');
+      return;
     }
-
-    // get the signature from the header
-    const signature = req.headers.get('stripe-signature');
-
+    const signature = req.headers['stripe-signature'];
     if (!signature) {
-      return new Response('No signature found', { status: 400 });
+      res.status(400).send('No signature found');
+      return;
     }
-
-    // get the raw body
-    const body = await req.text();
-
-    // verify the webhook signature
-    let event: Stripe.Event;
-
+    const body = req.body;
+    let event;
     try {
       event = await stripe.webhooks.constructEventAsync(body, signature, stripeWebhookSecret);
-    } catch (error: any) {
-      console.error(`Webhook signature verification failed: ${error.message}`);
-      return new Response(`Webhook signature verification failed: ${error.message}`, { status: 400 });
+    } catch (error) {
+      let message = 'Unknown error';
+      if (error instanceof Error) {
+        message = error.message;
+      } else if (typeof error === 'string') {
+        message = error;
+      }
+      console.error(`Webhook signature verification failed: ${message}`);
+      res.status(400).send(`Webhook signature verification failed: ${message}`);
+      return;
     }
-
-    EdgeRuntime.waitUntil(handleEvent(event));
-
-    return Response.json({ received: true });
-  } catch (error: any) {
-    console.error('Error processing webhook:', error);
-    return Response.json({ error: error.message }, { status: 500 });
+    await handleEvent(event);
+    res.status(200).json({ received: true });
+  } catch (error) {
+    let message = 'Unknown error';
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === 'string') {
+      message = error;
+    }
+    console.error('Error processing webhook:', message);
+    res.status(500).json({ error: message });
   }
-});
+}
 
 async function handleEvent(event: Stripe.Event) {
   const stripeData = event?.data?.object ?? {};
@@ -65,8 +72,11 @@ async function handleEvent(event: Stripe.Event) {
   }
 
   // for one time payments, we only listen for the checkout.session.completed event
-  if (event.type === 'payment_intent.succeeded' && event.data.object.invoice === null) {
-    return;
+  if (event.type === 'payment_intent.succeeded') {
+    const paymentIntent = event.data.object as Partial<{ invoice: unknown }>;
+    if ('invoice' in paymentIntent && paymentIntent.invoice === null) {
+      return;
+    }
   }
 
   const { customer: customerId } = stripeData;
@@ -163,8 +173,8 @@ async function syncCustomerFromStripe(customerId: string) {
         customer_id: customerId,
         subscription_id: subscription.id,
         price_id: subscription.items.data[0].price.id,
-        current_period_start: subscription.current_period_start,
-        current_period_end: subscription.current_period_end,
+        current_period_start: subscription.items.data[0].current_period_start,
+        current_period_end: subscription.items.data[0].current_period_end,
         cancel_at_period_end: subscription.cancel_at_period_end,
         ...(subscription.default_payment_method && typeof subscription.default_payment_method !== 'string'
           ? {

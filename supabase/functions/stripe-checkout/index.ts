@@ -1,9 +1,10 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import Stripe from 'stripe';
 import { createClient } from '@supabase/supabase-js';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
-const supabase = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '');
-const stripeSecret = Deno.env.get('STRIPE_SECRET_KEY')!;
+const supabase = createClient(process.env.SUPABASE_URL ?? '', process.env.SUPABASE_SERVICE_ROLE_KEY ?? '');
+const stripeSecret = process.env.STRIPE_SECRET_KEY!;
 const stripe = new Stripe(stripeSecret, {
   appInfo: {
     name: 'Bolt Integration',
@@ -33,18 +34,20 @@ function corsResponse(body: string | object | null, status = 200) {
   });
 }
 
-Deno.serve(async (req) => {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   try {
     if (req.method === 'OPTIONS') {
-      return corsResponse({}, 204);
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', '*');
+      res.status(204).end();
+      return;
     }
-
     if (req.method !== 'POST') {
-      return corsResponse({ error: 'Method not allowed' }, 405);
+      res.status(405).json({ error: 'Method not allowed' });
+      return;
     }
-
-    const { price_id, success_url, cancel_url, mode } = await req.json();
-
+    const { price_id, success_url, cancel_url, mode } = req.body;
     const error = validateParameters(
       { price_id, success_url, cancel_url, mode },
       {
@@ -54,44 +57,40 @@ Deno.serve(async (req) => {
         mode: { values: ['payment', 'subscription'] },
       },
     );
-
     if (error) {
-      return corsResponse({ error }, 400);
+      res.status(400).json({ error });
+      return;
     }
-
-    const authHeader = req.headers.get('Authorization')!;
+    const authHeader = req.headers['authorization'];
+    if (!authHeader) {
+      res.status(401).json({ error: 'Missing Authorization header' });
+      return;
+    }
     const token = authHeader.replace('Bearer ', '');
     const {
       data: { user },
       error: getUserError,
     } = await supabase.auth.getUser(token);
-
     if (getUserError) {
-      return corsResponse({ error: 'Failed to authenticate user' }, 401);
+      res.status(401).json({ error: 'Failed to authenticate user' });
+      return;
     }
-
     if (!user) {
-      return corsResponse({ error: 'User not found' }, 404);
+      res.status(404).json({ error: 'User not found' });
+      return;
     }
-
     const { data: customer, error: getCustomerError } = await supabase
       .from('stripe_customers')
       .select('customer_id')
       .eq('user_id', user.id)
       .is('deleted_at', null)
       .maybeSingle();
-
     if (getCustomerError) {
       console.error('Failed to fetch customer information from the database', getCustomerError);
-
-      return corsResponse({ error: 'Failed to fetch customer information' }, 500);
+      res.status(500).json({ error: 'Failed to fetch customer information' });
+      return;
     }
-
     let customerId;
-
-    /**
-     * In case we don't have a mapping yet, the customer does not exist and we need to create one.
-     */
     if (!customer || !customer.customer_id) {
       const newCustomer = await stripe.customers.create({
         email: user.email,
@@ -99,85 +98,66 @@ Deno.serve(async (req) => {
           userId: user.id,
         },
       });
-
       console.log(`Created new Stripe customer ${newCustomer.id} for user ${user.id}`);
-
       const { error: createCustomerError } = await supabase.from('stripe_customers').insert({
         user_id: user.id,
         customer_id: newCustomer.id,
       });
-
       if (createCustomerError) {
         console.error('Failed to save customer information in the database', createCustomerError);
-
-        // Try to clean up both the Stripe customer and subscription record
         try {
           await stripe.customers.del(newCustomer.id);
           await supabase.from('stripe_subscriptions').delete().eq('customer_id', newCustomer.id);
         } catch (deleteError) {
           console.error('Failed to clean up after customer mapping error:', deleteError);
         }
-
-        return corsResponse({ error: 'Failed to create customer mapping' }, 500);
+        res.status(500).json({ error: 'Failed to create customer mapping' });
+        return;
       }
-
       if (mode === 'subscription') {
         const { error: createSubscriptionError } = await supabase.from('stripe_subscriptions').insert({
           customer_id: newCustomer.id,
           status: 'not_started',
         });
-
         if (createSubscriptionError) {
           console.error('Failed to save subscription in the database', createSubscriptionError);
-
-          // Try to clean up the Stripe customer since we couldn't create the subscription
           try {
             await stripe.customers.del(newCustomer.id);
           } catch (deleteError) {
             console.error('Failed to delete Stripe customer after subscription creation error:', deleteError);
           }
-
-          return corsResponse({ error: 'Unable to save the subscription in the database' }, 500);
+          res.status(500).json({ error: 'Unable to save the subscription in the database' });
+          return;
         }
       }
-
       customerId = newCustomer.id;
-
       console.log(`Successfully set up new customer ${customerId} with subscription record`);
     } else {
       customerId = customer.customer_id;
-
       if (mode === 'subscription') {
-        // Verify subscription exists for existing customer
         const { data: subscription, error: getSubscriptionError } = await supabase
           .from('stripe_subscriptions')
           .select('status')
           .eq('customer_id', customerId)
           .maybeSingle();
-
         if (getSubscriptionError) {
           console.error('Failed to fetch subscription information from the database', getSubscriptionError);
-
-          return corsResponse({ error: 'Failed to fetch subscription information' }, 500);
+          res.status(500).json({ error: 'Failed to fetch subscription information' });
+          return;
         }
-
         if (!subscription) {
-          // Create subscription record for existing customer if missing
           const { error: createSubscriptionError } = await supabase.from('stripe_subscriptions').insert({
             customer_id: customerId,
             status: 'not_started',
           });
-
           if (createSubscriptionError) {
             console.error('Failed to create subscription record for existing customer', createSubscriptionError);
-
-            return corsResponse({ error: 'Failed to create subscription record for existing customer' }, 500);
+            res.status(500).json({ error: 'Failed to create subscription record for existing customer' });
+            return;
           }
         }
       }
     }
-
-    // create Checkout Session
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
       payment_method_types: ['card'],
@@ -191,15 +171,19 @@ Deno.serve(async (req) => {
       success_url,
       cancel_url,
     });
-
     console.log(`Created checkout session ${session.id} for customer ${customerId}`);
-
-    return corsResponse({ sessionId: session.id, url: session.url });
-  } catch (error: any) {
-    console.error(`Checkout error: ${error.message}`);
-    return corsResponse({ error: error.message }, 500);
+    res.status(200).json({ sessionId: session.id, url: session.url });
+  } catch (error) {
+    let message = 'Unknown error';
+    if (error instanceof Error) {
+      message = error.message;
+    } else if (typeof error === 'string') {
+      message = error;
+    }
+    console.error(`Checkout error: ${message}`);
+    res.status(500).json({ error: message });
   }
-});
+}
 
 type ExpectedType = 'string' | { values: string[] };
 type Expectations<T> = { [K in keyof T]: ExpectedType };
