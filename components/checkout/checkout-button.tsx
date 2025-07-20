@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 
 export const dynamic = "force-dynamic";
 
-interface CheckoutButtonProps {
+export interface CheckoutButtonProps {
   priceId: string;
   mode: 'payment' | 'subscription';
   children: React.ReactNode;
@@ -18,7 +18,7 @@ interface CheckoutButtonProps {
 
 const STRIPE_PAYMENT_LINK = "https://buy.stripe.com/test_8x2bIT62DgxfeCe6S883C00";
 
-export function CheckoutButton({ className, children }: { className?: string, children?: React.ReactNode }) {
+export function CheckoutButton({ priceId, mode, className, children }: CheckoutButtonProps) {
   return (
     <button
       className={className}
