@@ -60,11 +60,11 @@ export function PostForm({ post, onSubmit, onCancel }: PostFormProps) {
 
       // Try to get the public URL
       let imageUrl = '';
-      const { data: publicUrlData, error: urlError } = await supabase
+      const { data: publicUrlData } = supabase
         .storage
         .from('post-images')
         .getPublicUrl(filePath);
-      if (urlError) {
+      if (!publicUrlData || !publicUrlData.publicUrl) {
         // fallback to signed URL
         const { data: signedUrlData, error: signedUrlError } = await supabase
           .storage
