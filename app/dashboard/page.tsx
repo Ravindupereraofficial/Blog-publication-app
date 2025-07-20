@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Loader2, LogOut, User, Settings, Plus, FileText } from 'lucide-react';
 import Link from 'next/link';
 import type { Post } from '@/hooks/use-posts';
+import { useSearchParams } from 'next/navigation';
 
 export default function DashboardPage() {
   const { user, loading, signOut } = useAuth();
@@ -20,6 +21,8 @@ export default function DashboardPage() {
   const { posts, loading: postsLoading, createPost, updatePost, deletePost, publishPost, unpublishPost } = usePosts(user?.id);
   const [showPostForm, setShowPostForm] = useState(false);
   const [editingPost, setEditingPost] = useState<Post | null>(null);
+  const searchParams = useSearchParams();
+  const isPremium = searchParams.get('premium') === '1';
 
   if (loading) {
     return (
